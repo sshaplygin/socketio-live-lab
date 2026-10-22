@@ -174,20 +174,21 @@ One-time host setup, as root:
 
 ```sh
 git clone https://github.com/sshaplygin/socketio-live-lab.git /opt/live-lab
-install -m 0755 /opt/live-lab/deploy/update.sh /usr/local/sbin/live-lab-update
 # /opt/live-lab/deploy/.env, mode 0600: the variables from deploy/.env.example plus
 #   COMPOSE_PROJECT_NAME=live-lab
 #   COMPOSE_FILE=compose.yaml            (or compose.yaml:compose.alt-port.yaml)
 useradd --system --create-home --shell /bin/sh livelab-deploy
-echo 'livelab-deploy ALL=(root) NOPASSWD: /usr/local/sbin/live-lab-update' \
+echo 'livelab-deploy ALL=(root) NOPASSWD: /opt/live-lab/deploy/update.sh' \
   > /etc/sudoers.d/live-lab-deploy
 # ~livelab-deploy/.ssh/authorized_keys, one line:
-#   restrict,command="sudo -n /usr/local/sbin/live-lab-update \"$SSH_ORIGINAL_COMMAND\"" ssh-ed25519 AAAA...
+#   restrict,command="sudo -n /opt/live-lab/deploy/update.sh \"$SSH_ORIGINAL_COMMAND\"" ssh-ed25519 AAAA...
 ```
 
 The deploy user is not in the `docker` group; its key can run only the update
-script. The installed copy of the script does not change when the repository
-does: reinstall it by hand after reviewing changes to `deploy/update.sh`.
+script. The script, `compose.yaml` and the Dockerfile all come from `main` and run
+as root through sudo and Docker, so anyone who can merge to `main` controls the
+host. Protect the branch accordingly. If a commit breaks `update.sh` itself, CI
+cannot deploy the fix: run `git checkout` and `docker compose up` by hand.
 
 Repository settings: secrets `DEPLOY_HOST`, `DEPLOY_SSH_KEY` (private half of the
 key above) and `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 <host>`), and the
@@ -211,7 +212,7 @@ budget is needed. Requests, history, queues, connections and bot work are bounde
 - Change `LAB_SUBMISSIONS_ENABLED=false` and recreate the server to stop interactive
   submissions. Readiness becomes Degraded, and the page's explanatory content stays
   available. A process restart clears ephemeral history.
-- Rollback: `sudo live-lab-update <earlier commit on main>` on the host, or
+- Rollback: `sudo /opt/live-lab/deploy/update.sh <earlier commit on main>` on the host, or
   restore the previous server and bot images. A Go rollback/restart
   clears in-memory state; clients use the new boot ID to detect the history gap.
 - Stop the optional bot independently with `docker compose stop bot`.

@@ -46,7 +46,7 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
           chmod 600 ~/.ssh/deploy
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          # The key's authorized_keys entry forces live-lab-update; the argument is the commit.
+          # The key's authorized_keys entry forces deploy/update.sh; the argument is the commit.
           ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "livelab-deploy@$DEPLOY_HOST" "$GITHUB_SHA"
       - name: Check public readiness
