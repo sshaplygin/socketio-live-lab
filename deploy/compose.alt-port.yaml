@@ -1,0 +1,6 @@
+# For hosts where another service already owns 443/tcp: Caddy serves TLS on
+# 8443 and keeps 80 for the ACME HTTP-01 challenge. Set LAB_PUBLIC_HOST to
+# `<host>:8443` so Caddy and the server's Host check both expect the port.
+services:
+  proxy:
+    ports: !override ['80:80', '8443:8443']
