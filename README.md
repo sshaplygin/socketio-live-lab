@@ -156,9 +156,42 @@ Hints are cosmetic, never trusted principals or authentication.
 
 `deploy/` contains an optional single-instance Caddy HTTPS configuration. Review
 `deploy/.env.example`, set your own host/origins and secrets, and arrange DNS and
-TLS before using it. Local scripts never invoke it. Deployment is manual and was
-not performed as part of this example. Do not horizontally scale this in-memory
-service.
+TLS before using it. Local scripts never invoke it. Do not horizontally scale this
+in-memory service. If another service already owns 443/tcp on the host, add
+`deploy/compose.alt-port.yaml`: Caddy then serves TLS on 8443 and set
+`LAB_PUBLIC_HOST=<host>:8443`.
+
+### Continuous deployment
+
+`.github/workflows/ci.yml` runs `go vet` and `npm test` on every pull request and
+push. After a push to `main` passes, the `deploy` job in the `production`
+environment connects over SSH and passes the commit to
+[`deploy/update.sh`](deploy/update.sh). The script accepts only a commit already
+on `origin/main`, runs `docker compose up -d --build --wait` and, if the stack does
+not become healthy, checks out the previous commit and brings it back up.
+
+One-time host setup, as root:
+
+```sh
+git clone https://github.com/sshaplygin/socketio-live-lab.git /opt/live-lab
+install -m 0755 /opt/live-lab/deploy/update.sh /usr/local/sbin/live-lab-update
+# /opt/live-lab/deploy/.env, mode 0600: the variables from deploy/.env.example plus
+#   COMPOSE_PROJECT_NAME=live-lab
+#   COMPOSE_FILE=compose.yaml            (or compose.yaml:compose.alt-port.yaml)
+useradd --system --create-home --shell /bin/sh livelab-deploy
+echo 'livelab-deploy ALL=(root) NOPASSWD: /usr/local/sbin/live-lab-update' \
+  > /etc/sudoers.d/live-lab-deploy
+# ~livelab-deploy/.ssh/authorized_keys, one line:
+#   restrict,command="sudo -n /usr/local/sbin/live-lab-update \"$SSH_ORIGINAL_COMMAND\"" ssh-ed25519 AAAA...
+```
+
+The deploy user is not in the `docker` group; its key can run only the update
+script. The installed copy of the script does not change when the repository
+does: reinstall it by hand after reviewing changes to `deploy/update.sh`.
+
+Repository settings: secrets `DEPLOY_HOST`, `DEPLOY_SSH_KEY` (private half of the
+key above) and `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 <host>`), and the
+`LIVE_LAB_URL` variable (for example `https://realtime.example.com:8443`).
 
 Origin and Host validation applies to every request. Forwarded IP headers are
 ignored. Behind a reverse proxy the source-IP handshake limit groups traffic by
@@ -178,7 +211,8 @@ budget is needed. Requests, history, queues, connections and bot work are bounde
 - Change `LAB_SUBMISSIONS_ENABLED=false` and recreate the server to stop interactive
   submissions. Readiness becomes Degraded, and the page's explanatory content stays
   available. A process restart clears ephemeral history.
-- Rollback: restore the previous server and bot images. A Go rollback/restart
+- Rollback: `sudo live-lab-update <earlier commit on main>` on the host, or
+  restore the previous server and bot images. A Go rollback/restart
   clears in-memory state; clients use the new boot ID to detect the history gap.
 - Stop the optional bot independently with `docker compose stop bot`.
 
@@ -195,4 +229,5 @@ npm run test:docker
 Integration tests build real Go server/bot binaries with the race detector on
 loopback port 18080. Docker tests use a separate Compose project and a temporary
 loopback port, then remove their containers and secrets. The browser UI and its
-Playwright tests remain in the portfolio repository. No test deploys anything.
+Playwright tests remain in the portfolio repository. No test deploys anything;
+only the `deploy` CI job does.
