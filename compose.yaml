@@ -1,0 +1,62 @@
+# Local development only: no reverse proxy, TLS, or public port binding.
+name: live-lab
+
+x-runtime: &runtime
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  stop_grace_period: 20s
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+  deploy:
+    replicas: 1
+
+services:
+  server:
+    <<: *runtime
+    build:
+      context: .
+      target: server
+    ports:
+      - '127.0.0.1:${LAB_HTTP_PORT:-8080}:8080'
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    environment:
+      LAB_ADDR: 0.0.0.0:8080
+      LAB_ALLOWED_HOSTS: localhost:${LAB_HTTP_PORT:-8080},127.0.0.1:${LAB_HTTP_PORT:-8080},server:8080,127.0.0.1:8080
+      LAB_ALLOWED_ORIGINS: ${LAB_ALLOWED_ORIGINS:-http://localhost:4321,http://127.0.0.1:4321}
+      LAB_BOT_TOKEN: ${LAB_BOT_TOKEN:?Run npm run lab:docker:init first}
+      LAB_METRICS_TOKEN: ${LAB_METRICS_TOKEN:?Run npm run lab:docker:init first}
+      LAB_SUBMISSIONS_ENABLED: ${LAB_SUBMISSIONS_ENABLED:-true}
+      LAB_MAX_CLIENTS: ${LAB_MAX_CLIENTS:-200}
+      LAB_MAX_IDENTITIES: ${LAB_MAX_IDENTITIES:-2000}
+      LAB_HISTORY_LIMIT: ${LAB_HISTORY_LIMIT:-100}
+      LAB_HISTORY_BYTES: ${LAB_HISTORY_BYTES:-1048576}
+      LAB_HISTORY_SECONDS: ${LAB_HISTORY_SECONDS:-900}
+      LAB_QUEUE_SIZE: ${LAB_QUEUE_SIZE:-64}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/readyz']
+      interval: 3s
+      timeout: 2s
+      start_period: 5s
+      retries: 10
+  bot:
+    <<: *runtime
+    build:
+      context: .
+      target: bot
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 64
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      LAB_SERVER_URL: http://server:8080
+      LAB_BOT_TOKEN: ${LAB_BOT_TOKEN:?Run npm run lab:docker:init first}

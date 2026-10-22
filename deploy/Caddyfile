@@ -1,0 +1,20 @@
+{$LAB_PUBLIC_HOST:realtime.example.com} {
+    # Caddy terminates TLS and proxies both polling and WebSocket upgrades.
+    # Keep realtime responses uncached; access logging is deliberately disabled.
+    @realtime path /socket.io/* /api/live-lab/* /healthz /readyz
+    handle @realtime {
+        header Cache-Control "no-store"
+        reverse_proxy server:8080 {
+            transport http {
+                dial_timeout 5s
+                response_header_timeout 35s
+                read_timeout 60s
+                write_timeout 60s
+            }
+        }
+    }
+    # Metrics is intentionally available only inside the deployment network.
+    handle {
+        respond "Not found" 404
+    }
+}

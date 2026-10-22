@@ -1,0 +1,27 @@
+{
+  "name": "socketio-live-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone Go Socket.IO server and client example",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "server": "go run ./cmd/server",
+    "bot": "go run ./cmd/bot",
+    "demo": "node scripts/demo.mjs",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "go test -race ./...",
+    "test:integration": "node --test tests/integration.test.mjs",
+    "test:docker": "node --test tests/docker.test.mjs",
+    "lab:docker:init": "node scripts/init-docker.mjs",
+    "lab:docker:up": "npm run lab:docker:init && docker compose --env-file .env.docker up -d --build --wait",
+    "lab:docker:down": "docker compose --env-file .env.docker down",
+    "lab:docker:logs": "docker compose --env-file .env.docker logs --follow",
+    "lab:docker:status": "docker compose --env-file .env.docker ps"
+  },
+  "devDependencies": {
+    "socket.io-client": "2.5.0"
+  }
+}
