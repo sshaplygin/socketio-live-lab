@@ -205,7 +205,14 @@ set it on a server that clients can reach directly.
 
 In the deployment Caddy is limited to 0.5 CPU and 128 MB and drops clients that
 take more than 10 seconds to send request headers. None of this stops a
-volumetric DDoS; that needs filtering in front of the host. Requests, history, queues, connections and bot work are bounded.
+volumetric DDoS; that needs filtering in front of the host.
+
+[`deploy/firewall.sh`](deploy/firewall.sh) adds kernel-level limits for the TLS port
+only: 20 concurrent and 30 new connections per minute (burst 30) per source
+address, /64 for IPv6. Install it once with
+[`deploy/live-lab-firewall.service`](deploy/live-lab-firewall.service), which runs it
+from `/opt/live-lab` at boot and after Docker restarts. Changes to the script take
+effect on `systemctl restart live-lab-firewall`. Requests, history, queues, connections and bot work are bounded.
 
 ## Operations and rollback
 
