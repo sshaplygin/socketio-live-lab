@@ -24,6 +24,10 @@ services:
       LAB_HISTORY_BYTES: ${LAB_HISTORY_BYTES:-1048576}
       LAB_HISTORY_SECONDS: ${LAB_HISTORY_SECONDS:-900}
       LAB_QUEUE_SIZE: ${LAB_QUEUE_SIZE:-64}
+      # The server publishes no port, so only containers on this Compose network
+      # reach it: Caddy (which overwrites X-Forwarded-For) and the bot (which sends
+      # none). Trusting the private ranges keys the handshake limit per visitor.
+      LAB_TRUSTED_PROXIES: ${LAB_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     expose: [8080]
     deploy:
       replicas: 1
@@ -56,6 +60,17 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on: [server]
+    # TLS handshakes are the cheapest thing to flood; cap them so the host's other
+    # services keep CPU and memory.
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
     ports: ['80:80', '443:443']
     environment:
       LAB_PUBLIC_HOST: ${LAB_PUBLIC_HOST:-realtime.example.com}

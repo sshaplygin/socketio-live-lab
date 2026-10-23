@@ -1,3 +1,14 @@
+{
+    servers {
+        # Drop clients that never finish sending headers (slowloris). WebSocket
+        # streams are hijacked after the upgrade and are not affected.
+        timeouts {
+            read_header 10s
+            idle 2m
+        }
+    }
+}
+
 {$LAB_PUBLIC_HOST:realtime.example.com} {
     # Caddy terminates TLS and proxies both polling and WebSocket upgrades.
     # Keep realtime responses uncached; access logging is deliberately disabled.
