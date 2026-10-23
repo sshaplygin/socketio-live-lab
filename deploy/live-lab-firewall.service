@@ -1,0 +1,17 @@
+# Applies deploy/firewall.sh from the deployment checkout at boot and whenever
+# Docker restarts. Install: copy to /etc/systemd/system/, then
+# `systemctl enable --now live-lab-firewall`.
+[Unit]
+Description=Per-source connection limits for the live lab TLS port
+After=docker.service network-online.target
+Wants=network-online.target
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh /opt/live-lab/deploy/firewall.sh up
+ExecStop=/bin/sh /opt/live-lab/deploy/firewall.sh down
+
+[Install]
+WantedBy=multi-user.target docker.service
