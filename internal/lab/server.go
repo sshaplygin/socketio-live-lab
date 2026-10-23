@@ -22,6 +22,7 @@ type Server struct {
 	mu             sync.Mutex
 	peers          map[socketio.Conn]*Peer
 	admissions     map[string]*window
+	proxies        []*net.IPNet
 	origins, hosts map[string]bool
 	metricsToken   string
 }
@@ -96,6 +97,54 @@ func NewServer(c Config, origins, hosts []string, metricsToken string) *Server {
 	}
 	return s
 }
+
+// TrustProxies sets the networks whose X-Forwarded-For the admission limit
+// believes. Only list addresses that can reach the server solely as a reverse
+// proxy which overwrites the header with the real client address.
+func (s *Server) TrustProxies(cidrs []string) error {
+	for _, cidr := range cidrs {
+		if cidr = strings.TrimSpace(cidr); cidr == "" {
+			continue
+		}
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return err
+		}
+		s.proxies = append(s.proxies, network)
+	}
+	return nil
+}
+
+// clientIP keys the admission limit. A trusted proxy's own address would put
+// every visitor into one shared budget, so its last X-Forwarded-For entry (the
+// one the proxy wrote) is used instead; everything else gets the peer address.
+func (s *Server) clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	peer := net.ParseIP(host)
+	trusted := false
+	for _, network := range s.proxies {
+		if peer != nil && network.Contains(peer) {
+			trusted = true
+			break
+		}
+	}
+	values := r.Header.Values("X-Forwarded-For")
+	if !trusted || len(values) == 0 {
+		return host
+	}
+	last := values[len(values)-1]
+	if i := strings.LastIndexByte(last, ','); i >= 0 {
+		last = last[i+1:]
+	}
+	if ip := net.ParseIP(strings.TrimSpace(last)); ip != nil {
+		return ip.String()
+	}
+	return host
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -126,7 +175,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.URL.Query().Get("sid") == "" {
-			ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+			ip := s.clientIP(r)
 			s.mu.Lock()
 			now := time.Now()
 			for key, v := range s.admissions {

@@ -194,10 +194,18 @@ Repository settings: secrets `DEPLOY_HOST`, `DEPLOY_SSH_KEY` (private half of th
 key above) and `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 <host>`), and the
 `LIVE_LAB_URL` variable (for example `https://realtime.example.com:8443`).
 
-Origin and Host validation applies to every request. Forwarded IP headers are
-ignored. Behind a reverse proxy the source-IP handshake limit groups traffic by
-proxy address; configure a reviewed edge limiter if a larger public admission
-budget is needed. Requests, history, queues, connections and bot work are bounded.
+Origin and Host validation applies to every request. New Socket.IO handshakes are
+limited to 60 per minute per client address and 200 concurrent connections.
+`X-Forwarded-For` is believed only from networks listed in `LAB_TRUSTED_PROXIES`
+(comma-separated CIDRs, empty by default), and then only its last entry. Without
+it, every visitor behind a reverse proxy shares the proxy's single budget.
+`deploy/compose.yaml` trusts the private ranges because the server publishes no
+port there and Caddy overwrites the header with the real client address. Never
+set it on a server that clients can reach directly.
+
+In the deployment Caddy is limited to 0.5 CPU and 128 MB and drops clients that
+take more than 10 seconds to send request headers. None of this stops a
+volumetric DDoS; that needs filtering in front of the host. Requests, history, queues, connections and bot work are bounded.
 
 ## Operations and rollback
 

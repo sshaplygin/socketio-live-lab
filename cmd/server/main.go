@@ -46,6 +46,10 @@ func main() {
 	c.QueueSize = number("LAB_QUEUE_SIZE", 64, 4, 256)
 	c.HistoryAge = time.Duration(number("LAB_HISTORY_SECONDS", 900, 1, 86400)) * time.Second
 	server := lab.NewServer(c, strings.Split(env("LAB_ALLOWED_ORIGINS", "http://localhost:4321,http://127.0.0.1:4321"), ","), strings.Split(env("LAB_ALLOWED_HOSTS", "localhost:8080,127.0.0.1:8080"), ","), os.Getenv("LAB_METRICS_TOKEN"))
+	if err := server.TrustProxies(strings.Split(os.Getenv("LAB_TRUSTED_PROXIES"), ",")); err != nil {
+		slog.Error("invalid LAB_TRUSTED_PROXIES", "error", err)
+		os.Exit(1)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	httpServer := &http.Server{Addr: env("LAB_ADDR", "127.0.0.1:8080"), Handler: server, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
