@@ -116,10 +116,8 @@ switching. `LAB_ALLOWED_ORIGINS` must include the browser's exact origin.
 ### Protocol compatibility
 
 This example uses Engine.IO protocol 3 / Socket.IO protocol 4: JS
-`socket.io-client@2.5.0` and the root Go module pinned to commit `0fa1ead74224`
-(pseudo-version `v1.4.3-0.20261021122608-0fa1ead74224`). It does not use Socket.IO
-v4 clients. At the original version check, no v1.5.0 tag was available; v1.4.2
-used the old module path and did not include the Go client needed here.
+`socket.io-client@2.5.0` and the root Go module `github.com/sshaplygin/go-socket.io`
+v1.5.0. It does not use Socket.IO v4 clients.
 
 ## Configuration
 

@@ -2,8 +2,8 @@
 
 Socket.IO namespace `/lab`, HTTP Engine.IO path `/socket.io/`, Engine.IO protocol
 3 and Socket.IO protocol 4. The browser is pinned to JS 2.5.0. Use polling with
-normal WebSocket upgrade. The maintained root Go module is pinned to commit
-`0fa1ead74224`; see the compatibility note in the README.
+normal WebSocket upgrade. The maintained root Go module is pinned to v1.5.0; see the
+compatibility note in the README.
 
 The Transport control deliberately downgrades an established WebSocket connection
 by reconnecting with `transports: ["polling"]` and `upgrade: false`. Engine.IO 3
